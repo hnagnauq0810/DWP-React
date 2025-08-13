@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Leaf & Light — Houseplant Store</title>
+  <style>
+    :root {
+      --green: #0f8a5f;
+      --dark: #0f2e2e;
+      --light: #f6fff9;
+      --accent: #ffb703;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--light); color:#222; }
+
+    /* Header shows on /shop and /cart */
+    header {
+      position: sticky; top:0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; background: white; border-bottom: 1px solid #e8e8e8;
+    }
+    .brand { font-weight: 800; letter-spacing: .5px; color: var(--green); text-decoration: none; }
+    nav a { margin-left: 16px; text-decoration: none; color:#333; font-weight:600; }
+    nav a.active { color: var(--green); text-decoration: underline; }
+    .cart { display:flex; align-items:center; gap:8px; font-weight:700; }
+    .cart-badge { background: var(--green); color:white; border-radius: 999px; padding: 2px 8px; min-width: 26px; text-align:center; }
+
+    /* Landing */
+    .hero {
+      min-height: 80vh; display:grid; place-items:center; text-align:center; color:white;
+      background:
+        linear-gradient( to bottom, rgba(0,0,0,.45), rgba(0,0,0,.45) ),
+        url('https://images.unsplash.com/photo-1498842812179-c81beecf902c?q=80&w=1600&auto=format&fit=crop') center/cover no-repeat;
+      padding: 48px 16px;
+    }
+    .hero h1 { font-size: clamp(36px, 6vw, 72px); margin: 0 0 8px; }
+    .hero p { max-width: 760px; margin: 0 auto 24px; font-size: clamp(16px, 2.5vw, 20px); }
+    .cta { display:inline-block; background: var(--accent); color:#222; font-weight:800;
+      padding: 12px 20px; border-radius: 8px; text-decoration: none; }
+
+    /* Grid & Cards */
+    .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    h2 { margin: 24px 0 12px; color: var(--dark); }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:16px; }
+    .card { background:white; border:1px solid #eee; border-radius: 12px; overflow:hidden; display:flex; flex-direction:column; }
+    .thumb { width:100%; aspect-ratio: 4/3; object-fit: cover; }
+    .card-body { padding: 12px; display:flex; gap:8px; flex-direction:column; flex:1; }
+    .price { font-weight:800; color: var(--green); }
+    .muted { color:#666; font-size: 14px; }
+    .btn { border:0; padding:10px 12px; border-radius:8px; background:var(--green); color:white; font-weight:700; cursor:pointer; }
+    .btn[disabled] { background:#c8e8db; color:#588a79; cursor:not-allowed; }
+
+    /* Cart page */
+    .cart-row { display:grid; grid-template-columns: 72px 1fr auto auto auto auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid #eee; }
+    .cart-thumb { width:72px; height:72px; object-fit:cover; border-radius:8px; }
+    .qty-controls { display:flex; align-items:center; gap:6px; }
+    .small { padding:6px 10px; font-size: 14px; }
+    .row-end { display:flex; gap:8px; margin-top: 12px; }
+    .outline { background:transparent; border:1px solid var(--green); color: var(--green); }
+
+    footer { text-align:center; padding: 30px 16px; color:#888; }
+  </style>
+</head>
+<body>
+
+  <div id="root"></div>
+
+  <!-- React + ecosystem UMD builds (order matters) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js"></script>
+
+  <!-- Redux Toolkit + React-Redux (UMD globals: RTK, ReactRedux) -->
+  <script crossorigin src="https://unpkg.com/@reduxjs/toolkit@2.2.3/dist/redux-toolkit.umd.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-redux@8/umd/react-redux.js"></script>
+
+  <!-- Your app -->
+  <script type="text/javascript">
+    // Destructure ONLY AFTER the script tags above have loaded.
+    const { createElement, useMemo } = React;
+    const { createRoot } = ReactDOM;
+    const { Provider, useDispatch, useSelector } = ReactRedux;
+    const {
+      BrowserRouter, Routes, Route, Link, NavLink, useLocation
+    } = ReactRouterDOM;
+    const { configureStore, createSlice } = RTK;
+
+    /***************
+     * Data
+     ***************/
+    const PLANTS = [
+      { id: "zz", name: "ZZ Plant", price: 24.99, category: "Low Light", img: "https://images.unsplash.com/photo-1587502537807-ec076b34a937?q=80&w=800&auto=format&fit=crop" },
+      { id: "monstera", name: "Monstera", price: 34.50, category: "Tropical", img: "https://images.unsplash.com/photo-1520880867055-1e30d1cb001c?q=80&w=800&auto=format&fit=crop" },
+      { id: "snake", name: "Snake Plant", price: 19.95, category: "Low Light", img: "https://images.unsplash.com/photo-1584634731339-252c581abfc3?q=80&w=800&auto=format&fit=crop" },
+      { id: "pothos", name: "Golden Pothos", price: 14.99, category: "Easy Care", img: "https://images.unsplash.com/photo-1614594852870-3e3aa8b0ca69?q=80&w=800&auto=format&fit=crop" },
+      { id: "aloe", name: "Aloe Vera", price: 12.99, category: "Succulent", img: "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=800&auto=format&fit=crop" },
+      { id: "orchid", name: "Phalaenopsis Orchid", price: 29.00, category: "Flowering", img: "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=800&auto=format&fit=crop" },
+    ];
+
+    /***************
+     * Redux slice (cart)
+     ***************/
+    const cartSlice = createSlice({
+      name: 'cart',
+      initialState: {
+        items: {},       // id -> { product, qty }
+        totalCount: 0,
+        totalCost: 0
+      },
+      reducers: {
+        addItem(state, action) {
+          const id = action.payload;
+          const product = PLANTS.find(p => p.id === id);
+          if (!product) return;
+          if (!state.items[id]) {
+            state.items[id] = { product, qty: 0 };
+          }
+          state.items[id].qty += 1;
+          state.totalCount += 1;
+          state.totalCost = Number((state.totalCost + product.price).toFixed(2));
+        },
+        inc(state, action) {
+          const id = action.payload;
+          const row = state.items[id];
+          if (!row) return;
+          row.qty += 1;
+          state.totalCount += 1;
+          state.totalCost = Number((state.totalCost + row.product.price).toFixed(2));
+        },
+        dec(state, action) {
+          const id = action.payload;
+          const row = state.items[id];
+          if (!row) return;
+          if (row.qty > 0) {
+            row.qty -= 1;
+            state.totalCount -= 1;
+            state.totalCost = Number((state.totalCost - row.product.price).toFixed(2));
+          }
+          if (row.qty === 0) delete state.items[id];
+        },
+        remove(state, action) {
+          const id = action.payload;
+          const row = state.items[id];
+          if (!row) return;
+          state.totalCount -= row.qty;
+          state.totalCost = Number((state.totalCost - row.qty * row.product.price).toFixed(2));
+          delete state.items[id];
+        },
+        clear(state) {
+          state.items = {};
+          state.totalCount = 0;
+          state.totalCost = 0;
+        }
+      }
+    });
+
+    const { addItem, inc, dec, remove, clear } = cartSlice.actions;
+
+    const store = configureStore({
+      reducer: { cart: cartSlice.reducer }
+    });
+
+    /***************
+     * Selectors
+     ***************/
+    const useTotalCount = () => useSelector(s => s.cart.totalCount);
+    const useTotalCost = () => useSelector(s => s.cart.totalCost);
+    const useCartRows = () => useSelector(s => Object.values(s.cart.items));
+
+    /***************
+     * Components
+     ***************/
+    function Header() {
+      const total = useTotalCount();
+      return (
+        React.createElement('header', null,
+          React.createElement(Link, { className: 'brand', to: '/shop' }, 'Leaf & Light'),
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 16 } },
+            React.createElement('nav', null,
+              React.createElement(NavLink, { to: '/shop', className: ({ isActive }) => isActive ? 'active' : undefined }, 'Shop'),
+              React.createElement(NavLink, { to: '/cart', className: ({ isActive }) => isActive ? 'active' : undefined }, 'Cart')
+            ),
+            React.createElement(Link, { to: '/cart', className: 'cart', title: 'View cart' },
+              '🛒', React.createElement('span', { className: 'cart-badge' }, String(total))
+            )
+          )
+        )
+      );
+    }
+
+    function Landing() {
+      return (
+        React.createElement('main', { className: 'hero' },
+          React.createElement('div', null,
+            React.createElement('h1', null, 'Leaf & Light'),
+            React.createElement('p', null, 'Beautiful, low-maintenance houseplants to brighten every room. Sustainably sourced, delivered with care.'),
+            React.createElement(Link, { to: '/shop', className: 'cta' }, 'Get Started')
+          )
+        )
+      );
+    }
+
+    function Shop() {
+      const dispatch = useDispatch();
+      const cartItems = useSelector(s => s.cart.items);
+      const byCategory = useMemo(() => {
+        const map = {};
+        for (const p of PLANTS) {
+          map[p.category] ??= [];
+          map[p.category].push(p);
+        }
+        return map;
+      }, []);
+
+      return (
+        React.createElement('div', { className: 'wrap' },
+          React.createElement('h2', null, 'Shop Houseplants'),
+          Object.entries(byCategory).map(([cat, list]) =>
+            React.createElement('section', { key: cat },
+              React.createElement('h3', null, cat),
+              React.createElement('div', { className: 'grid' },
+                list.map(p =>
+                  React.createElement('article', { key: p.id, className: 'card' },
+                    React.createElement('img', { className: 'thumb', src: p.img, alt: p.name }),
+                    React.createElement('div', { className: 'card-body' },
+                      React.createElement('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'baseline' } },
+                        React.createElement('strong', null, p.name),
+                        React.createElement('span', { className: 'price' }, `$${p.price.toFixed(2)}`)
+                      ),
+                      React.createElement('span', { className: 'muted' }, 'Category: ', p.category),
+                      React.createElement('div', { style: { marginTop:'auto' } },
+                        React.createElement('button', {
+                          className: 'btn',
+                          disabled: !!cartItems[p.id],
+                          onClick: () => dispatch(addItem(p.id))
+                        }, cartItems[p.id] ? 'Added' : 'Add to Cart')
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      );
+    }
+
+    function Cart() {
+      const rows = useCartRows();
+      const totalCount = useTotalCount();
+      const totalCost = useTotalCost();
+      const dispatch = useDispatch();
+
+      return (
+        React.createElement('div', { className: 'wrap' },
+          React.createElement('h2', null, 'Your Cart'),
+          React.createElement('div', { className: 'muted' }, `Total items: ${totalCount}`),
+          React.createElement('div', { className: 'muted', style:{ marginBottom: 12 } }, `Total cost: $${totalCost.toFixed(2)}`),
+
+          rows.length === 0
+            ? React.createElement('p', null, 'Your cart is empty.')
+            : rows.map(row =>
+                React.createElement('div', { key: row.product.id, className: 'cart-row' },
+                  React.createElement('img', { className: 'cart-thumb', src: row.product.img, alt: row.product.name }),
+                  React.createElement('div', null,
+                    React.createElement('div', { style:{ fontWeight:800 } }, row.product.name),
+                    React.createElement('div', { className:'muted' }, `Unit: $${row.product.price.toFixed(2)}`)
+                  ),
+                  React.createElement('div', { className:'qty-controls' },
+                    React.createElement('button', { className:'btn small outline', onClick: () => dispatch(dec(row.product.id)) }, '−'),
+                    React.createElement('strong', null, row.qty),
+                    React.createElement('button', { className:'btn small', onClick: () => dispatch(inc(row.product.id)) }, '+')
+                  ),
+                  React.createElement('div', null, `$${(row.qty * row.product.price).toFixed(2)}`),
+                  React.createElement('button', { className:'btn small outline', onClick: () => dispatch(remove(row.product.id)) }, 'Delete'),
+                  React.createElement('div', null)
+                )
+              ),
+
+          React.createElement('div', { className:'row-end' },
+            React.createElement(Link, { to:'/shop', className:'btn outline' }, 'Continue Shopping'),
+            React.createElement('button', { className:'btn', onClick: () => alert('Coming Soon') }, 'Checkout'),
+            rows.length > 0 && React.createElement('button', { className:'btn outline', onClick: () => dispatch(clear()) }, 'Clear Cart')
+          )
+        )
+      );
+    }
+
+    function Layout() {
+      const location = useLocation();
+      const showHeader = location.pathname !== '/';
+      return (
+        React.createElement(React.Fragment, null,
+          showHeader && React.createElement(Header, null),
+          React.createElement(Routes, null,
+            React.createElement(Route, { path: '/', element: React.createElement(Landing, null) }),
+            React.createElement(Route, { path: '/shop', element: React.createElement(Shop, null) }),
+            React.createElement(Route, { path: '/cart', element: React.createElement(Cart, null) })
+          ),
+          React.createElement('footer', null, '© ', new Date().getFullYear(), ' Leaf & Light')
+        )
+      );
+    }
+
+    function App() {
+      return (
+        React.createElement(Provider, { store },
+          React.createElement(BrowserRouter, null,
+            React.createElement(Layout, null)
+          )
+        )
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(React.createElement(App, null));
+
+    /***************
+     * Minimal tests (console)
+     ***************/
+    (function runTests() {
+      const results = [];
+      const expect = (name, cond) => results.push({ name, pass: !!cond });
+
+      // fresh store for tests
+      const testStore = configureStore({ reducer: { cart: cartSlice.reducer } });
+
+      const price = id => PLANTS.find(p => p.id === id).price;
+
+      testStore.dispatch(addItem('aloe'));
+      let s = testStore.getState().cart;
+      expect('Add aloe increments count', s.totalCount === 1);
+      expect('Add aloe sets cost', s.totalCost === Number(price('aloe').toFixed(2)));
+      expect('Aloe exists with qty 1', s.items['aloe']?.qty === 1);
+
+      testStore.dispatch(addItem('aloe'));
+      s = testStore.getState().cart;
+      expect('Add aloe again qty 2', s.items['aloe']?.qty === 2);
+      expect('Total count 2', s.totalCount === 2);
+
+      testStore.dispatch(inc('aloe'));
+      s = testStore.getState().cart;
+      expect('Inc aloe qty 3', s.items['aloe']?.qty === 3);
+
+      testStore.dispatch(dec('aloe'));
+      s = testStore.getState().cart;
+      expect('Dec aloe qty 2', s.items['aloe']?.qty === 2);
+
+      testStore.dispatch(remove('aloe'));
+      s = testStore.getState().cart;
+      expect('Remove aloe deletes row', !s.items['aloe']);
+      expect('Remove aloe resets counts', s.totalCount === 0);
+
+      // Add two different items and validate totals
+      testStore.dispatch(addItem('zz'));
+      testStore.dispatch(addItem('snake'));
+      s = testStore.getState().cart;
+      expect('Two distinct items count 2', s.totalCount === 2);
+      const expectedCost = Number((price('zz') + price('snake')).toFixed(2));
+      expect('Total cost matches sum', Math.abs(s.totalCost - expectedCost) < 1e-9);
+
+      // Log summary
+      const allPass = results.every(r => r.pass);
+      const table = results.map(r => ({ Test: r.name, Result: r.pass ? 'PASS' : 'FAIL' }));
+      // eslint-disable-next-line no-console
+      console.table(table);
+      if (!allPass) console.error('Some tests FAILED'); else console.log('All reducer tests PASS ✅');
+    })();
+  </script>
+</body>
+</html>
